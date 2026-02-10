@@ -8,11 +8,12 @@ def regestration():
         resize_keyboard=True
     )
 
+# keyboard.py
 def main_menu_for_teacher():
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="Показати всі візити")], 
-            [KeyboardButton(text="Вивести список відсутніх учнів")]
+            [KeyboardButton(text="Вийти з акаунта")] # Додано
         ],
         resize_keyboard=True
     )
@@ -22,7 +23,8 @@ def main_menu_for_student():
         keyboard=[
             [KeyboardButton(text="Прибув")],
             [KeyboardButton(text="В дорозі")],
-            [KeyboardButton(text="В дома")]
+            [KeyboardButton(text="В дома")],
+            [KeyboardButton(text="Вийти з акаунта")] # Додано
         ],
         resize_keyboard=True
     )
@@ -35,4 +37,3 @@ def regestration():
         ],
         resize_keyboard=True
     )
-

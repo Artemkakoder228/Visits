@@ -95,5 +95,16 @@ async def show_all_visits(message: Message):
     else:
         await message.answer("Доступ заборонено.")
 
+@router.message(F.text == "Вийти з акаунта")
+async def logout_to_test(message: Message, state: FSMContext):
+    # Очищуємо стан FSM, щоб бот "забув", на якому кроці зупинився користувач
+    await state.clear()
+    
+    # Просто повертаємо користувача до вибору реєстрації/авторизації
+    await message.answer(
+        "Ви вийшли з поточного сеансу. Оберіть режим для входу:",
+        reply_markup=regestration() # Повертаємо початкову клавіатуру
+    )
+
 def register_handlers(dp):
     dp.include_router(router)
