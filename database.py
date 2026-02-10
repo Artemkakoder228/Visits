@@ -1,0 +1,93 @@
+import sqlite3
+from datetime import datetime
+
+# Назва файлу бази даних
+DB_NAME = 'visits.db'
+
+def init_db():
+    """Ініціалізація бази даних: створення таблиць, якщо вони не існують."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    # Таблиця користувачів (id, ПІБ, пошта, роль)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            tg_id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            email TEXT,
+            role TEXT
+        )
+    ''')
+    
+    # Таблиця візитів (хто, статус, дата та час)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS visits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tg_id INTEGER,
+            status TEXT,
+            timestamp TEXT,
+            FOREIGN KEY (tg_id) REFERENCES users (tg_id)
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+def register_user(tg_id, full_name, email, role):
+    """Збереження або оновлення даних користувача."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT OR REPLACE INTO users (tg_id, full_name, email, role)
+        VALUES (?, ?, ?, ?)
+    ''', (tg_id, full_name, email, role))
+    conn.commit()
+    conn.close()
+
+def get_user_role(tg_id):
+    """Отримання ролі користувача за його Telegram ID."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('SELECT role FROM users WHERE tg_id = ?', (tg_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
+
+def log_visit(tg_id, status):
+    """Запис статусу відвідування (Прибув, В дорозі тощо) з часовою міткою."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute('''
+        INSERT INTO visits (tg_id, status, timestamp)
+        VALUES (?, ?, ?)
+    ''', (tg_id, status, now))
+    conn.commit()
+    conn.close()
+
+def get_all_today_visits():
+    """Отримання списку всіх відміток за сьогодні для вчителя."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    # Об'єднуємо таблиці, щоб отримати ПІБ користувача разом зі статусом
+    cursor.execute('''
+        SELECT users.full_name, visits.status, visits.timestamp
+        FROM visits
+        JOIN users ON visits.tg_id = users.tg_id
+        WHERE visits.timestamp LIKE ?
+        ORDER BY visits.timestamp DESC
+    ''', (f'{today}%',))
+    
+    rows = cursor.fetchall()
+    conn.close()
+    
+    if not rows:
+        return "Сьогодні ще ніхто не відмічався."
+    
+    # Форматуємо список у зручний текст
+    report = ""
+    for name, status, time in rows:
+        report += f"📍 {name}: {status} ({time.split()[1]})\n"
+    return report

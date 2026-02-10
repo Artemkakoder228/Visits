@@ -26,3 +26,13 @@ def main_menu_for_student():
         ],
         resize_keyboard=True
     )
+
+def regestration():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="Учень: Реєстрація за email")],
+            [KeyboardButton(text="Вхід для вчителя")]
+        ],
+        resize_keyboard=True
+    )
+
