@@ -4,7 +4,7 @@ import database as db
 from aiogram import Bot, Dispatcher
 from config import BOT_TOKEN
 # Виправляємо імпорт: імпортуємо саму функцію реєстрації
-from handlers import registr
+from handlers.registr import register_handlers
 
 logging.basicConfig(level=logging.INFO)
 
@@ -17,7 +17,7 @@ async def main():
     db.init_db()
     
     # Викликаємо функцію безпосередньо
-    registr(dp)
+    register_handlers(dp)
 
     print("Бот запущений і готовий до роботи...")
     

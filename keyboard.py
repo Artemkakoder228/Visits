@@ -37,3 +37,12 @@ def regestration():
         ],
         resize_keyboard=True
     )
+
+def class_selection_menu():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="10-A"), KeyboardButton(text="11-A")],
+            [KeyboardButton(text="⬅️ Назад")] # Текст має збігатися з F.text
+        ],
+        resize_keyboard=True
+    )

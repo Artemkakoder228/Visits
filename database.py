@@ -15,7 +15,15 @@ def init_db():
             tg_id INTEGER PRIMARY KEY,
             full_name TEXT,
             email TEXT,
-            role TEXT
+            role TEXT,
+            class_name TEXT
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS allowed_emails (
+            email TEXT PRIMARY KEY,
+            class_name TEXT
         )
     ''')
     
@@ -33,16 +41,24 @@ def init_db():
     conn.commit()
     conn.close()
 
-def register_user(tg_id, full_name, email, role):
-    """Збереження або оновлення даних користувача."""
+def register_user(tg_id, full_name, email, role, class_name=None):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT OR REPLACE INTO users (tg_id, full_name, email, role)
-        VALUES (?, ?, ?, ?)
-    ''', (tg_id, full_name, email, role))
+        INSERT OR REPLACE INTO users (tg_id, full_name, email, role, class_name)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (tg_id, full_name, email, role, class_name))
     conn.commit()
     conn.close()
+
+def is_email_in_class(email, class_name):
+    """Перевірка, чи належить пошта цьому класу."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('SELECT 1 FROM allowed_emails WHERE email = ? AND class_name = ?', (email.lower(), class_name))
+    result = cursor.fetchone()
+    conn.close()
+    return result is not None
 
 def get_user_role(tg_id):
     """Отримання ролі користувача за його Telegram ID."""

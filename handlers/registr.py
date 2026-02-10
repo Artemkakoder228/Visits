@@ -1,15 +1,17 @@
+import email
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from config import TEACHER_SECRET_CODE
-from keyboard import regestration, main_menu_for_teacher, main_menu_for_student
+from keyboard import class_selection_menu, regestration, main_menu_for_teacher, main_menu_for_student
 import database as db  # Припустимо, файл з логікою БД називається database.py
 
 router = Router()
 
 # Визначаємо стани для FSM
 class AuthState(StatesGroup):
+    wait_for_class = State() # Новий стан
     wait_for_email = State()        # Очікування пошти від учня
     wait_for_teacher_code = State()  # Очікування пароля від вчителя
     wait_for_name = State()         # Очікування ПІБ (спільний крок)
@@ -44,26 +46,55 @@ async def check_teacher_code(message: Message, state: FSMContext):
     else:
         await message.answer("Невірний код. Спробуйте ще раз або натисніть /start")
 
-@router.message(F.text == "Реєстрація") # Або "Учень: Реєстрація", залежно від тексту в keyboard.py
+@router.message(F.text == "Учень: Реєстрація за email")
 async def student_reg_start(message: Message, state: FSMContext):
-    await message.answer("Введіть вашу електронну пошту (наприклад, student@example.com):")
-    await state.set_state(AuthState.wait_for_email)
+    # ПЕРШИМ ДІЛОМ очищуємо стан, щоб не було конфліктів з кодом вчителя
+    await state.clear() 
+    await message.answer("Оберіть ваш клас:", reply_markup=class_selection_menu())
+    await state.set_state(AuthState.wait_for_class)
+
+@router.message(AuthState.wait_for_class, F.text == "⬅️ Назад")
+async def back_to_main_menu(message: Message, state: FSMContext):
+    # Очищуємо стан, щоб бот "забув" про реєстрацію учня
+    await state.clear()
+    # Просто викликаємо головне меню
+    await cmd_start(message)
 
 @router.message(AuthState.wait_for_email)
 async def process_email(message: Message, state: FSMContext):
-    # Тут можна додати перевірку валідності email
-    await state.update_data(role="student", email=message.text.lower())
-    await message.answer("Дякую! Тепер введіть ваше Прізвище та Ім'я:")
-    await state.set_state(AuthState.wait_for_name)
+    email = message.text.lower()
+    data = await state.get_data()
+    class_name = data.get('class_name')
+    
+    # Перевіряємо пошту в базі через database.py
+    if db.is_email_in_class(email, class_name):
+        await state.update_data(role="student", email=email)
+        await message.answer("Пошта підтверджена! Тепер введіть ваше Прізвище та Ім'я:")
+        await state.set_state(AuthState.wait_for_name)
+    else:
+        # Якщо пошти немає — повертаємо до вибору класу
+        from keyboard import class_selection_menu
+        await message.answer(
+            f"Помилка! Пошти {email} немає у списках класу {class_name}.\n"
+            "Будь ласка, почніть реєстрацію спочатку та оберіть свій клас:",
+            reply_markup=class_selection_menu()
+        )
+        # Переводимо користувача назад на етап вибору класу
+        await state.set_state(AuthState.wait_for_class)
 
 @router.message(AuthState.wait_for_name)
 async def finish_registration(message: Message, state: FSMContext):
     user_data = await state.get_data()
     full_name = message.text
-    tg_id = message.from_user.id
     
     # Зберігаємо дані в базу
-    db.register_user(tg_id, full_name, user_data['email'], user_data['role'])
+    db.register_user(
+        message.from_user.id, 
+        full_name, 
+        user_data['email'], 
+        user_data['role'], 
+        user_data.get('class_name')
+    )
     
     if user_data['role'] == "teacher":
         await message.answer(f"Реєстрація завершена. Вітаю, {full_name}!", reply_markup=main_menu_for_teacher())
