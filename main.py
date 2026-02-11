@@ -15,7 +15,7 @@ dp = Dispatcher()
 
 # Функція для розсилки
 async def send_reminder(bot: Bot):
-    # Отримуємо список ID всіх зареєстрованих учнів
+    # Назва має збігатися з назвою у database.py
     users = db.get_all_student_ids() 
     for user_id in users:
         try:
@@ -39,8 +39,8 @@ async def main():
         send_reminder, 
         trigger='cron', 
         day_of_week='mon-fri', 
-        hour=8, 
-        minute=30, 
+        hour=19, 
+        minute=48, 
         args=[bot]
     )
     

@@ -144,7 +144,7 @@ async def handle_student_status(message: Message):
     user_role = db.get_user_role(message.from_user.id)
     if user_role == "student":
         db.log_visit(message.from_user.id, message.text)
-        # Ось це повідомлення підтвердження:
+        # Підтвердження для учня
         await message.answer(f"Статус «{message.text}» успішно змінено! ✅")
     else:
         await message.answer("Ця функція доступна тільки учням.")

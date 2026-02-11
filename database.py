@@ -116,6 +116,15 @@ def get_all_students():
     conn.close()
     return [row[0] for row in rows]
 
+def get_all_student_ids():
+    """Повертає список Telegram ID всіх користувачів з роллю student."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('SELECT tg_id FROM users WHERE role = "student"')
+    rows = cursor.fetchall()
+    conn.close()
+    return [row[0] for row in rows]
+
 def get_allowed_user_data(email):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
