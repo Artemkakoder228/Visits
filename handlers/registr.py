@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from config import TEACHER_SECRET_CODE, ALLOWED_TEACHER_EMAIL
+from config import TEACHER_SECRET_CODE
 from keyboard import class_selection_menu, regestration, main_menu_for_teacher, main_menu_for_student
 import database as db 
 
@@ -10,12 +10,12 @@ router = Router()
 
 # Визначаємо стани для FSM
 class AuthState(StatesGroup):
-    wait_for_class = State()        # Вибір класу (для учня)
-    wait_for_email = State()        # Введення пошти (для учня)
-    wait_for_teacher_code = State() # Введення секретного коду (для вчителя)
-    wait_for_teacher_email = State() # Введення перевірочної пошти (для вчителя)
-    wait_for_name = State()
-    wait_for_absent_class = State() # Новий стан      # Введення ПІБ (спільне)
+    wait_for_class = State()        # Вибір класу для учня
+    wait_for_email = State()        # Введення пошти для учня
+    wait_for_teacher_code = State() # Введення коду для вчителя
+    wait_for_teacher_email = State()# Введення пошти для вчителя (підтягування ПІБ)
+    wait_for_name = State()         # Введення ПІБ (якщо немає в базі)
+    wait_for_absent_class = State()  # Вибір класу для перевірки відсутніх
 
 # --- Головне меню та вхід ---
 
@@ -67,18 +67,22 @@ async def process_email(message: Message, state: FSMContext):
     data = await state.get_data()
     class_name = data.get('class_name')
     
-    if db.is_email_in_class(email, class_name):
-        await state.update_data(role="student", email=email)
-        await message.answer("Пошта підтверджена! Введіть ПІБ:", reply_markup=None)
-        await state.set_state(AuthState.wait_for_name)
+    # Перевіряємо в дозволених списках
+    user_data = db.get_allowed_user_data(email)
+    
+    if user_data and user_data[1] == class_name:
+        full_name = user_data[0]
+        # Автоматична реєстрація учня, якщо ім'я вже є в allowed_emails
+        db.register_user(message.from_user.id, full_name, email, "student", class_name)
+        await message.answer(f"Привіт, {full_name}! Реєстрація успішна.", reply_markup=main_menu_for_student())
+        await state.clear()
     else:
         await message.answer(
-            f"Пошти {email} немає у списках {class_name}.\nОберіть клас знову:",
+            f"Пошти {email} немає у списках {class_name} або дані некоректні.\nСпробуйте ще раз або /start",
             reply_markup=class_selection_menu()
         )
-        await state.set_state(AuthState.wait_for_class)
 
-# --- Логіка Вчителя (Код -> Пошта -> ПІБ) ---
+# --- Логіка Вчителя (Код -> Пошта -> Авто-ПІБ) ---
 
 @router.message(F.text == "Вхід для вчителя")
 async def teacher_auth_start(message: Message, state: FSMContext):
@@ -88,81 +92,52 @@ async def teacher_auth_start(message: Message, state: FSMContext):
 @router.message(AuthState.wait_for_teacher_code)
 async def check_teacher_code(message: Message, state: FSMContext):
     if message.text == TEACHER_SECRET_CODE:
-        await message.answer("Код вірний! Тепер введіть вашу вчительську пошту:")
-        await state.set_state(AuthState.wait_for_teacher_email) # Переходимо до нового стану
+        await message.answer("Код вірний! Введіть вашу вчительську пошту:")
+        await state.set_state(AuthState.wait_for_teacher_email)
     else:
         await message.answer("Невірний код. Спробуйте ще раз або /start")
 
 @router.message(AuthState.wait_for_teacher_email)
-async def check_teacher_email(message: Message, state: FSMContext):
-    input_email = message.text.lower()
+async def process_teacher_email(message: Message, state: FSMContext):
+    email = message.text.lower()
+    # Шукаємо вчителя в allowed_emails (де class_name == 'teacher')
+    user_data = db.get_allowed_user_data(email)
     
-    # Шукаємо дані в таблиці allowed_emails
-    user_data = db.get_allowed_user_data(input_email)
-    
-    # Перевіряємо, чи є така пошта і чи належить вона вчителю
     if user_data and user_data[1] == 'teacher':
         full_name = user_data[0]
-        
-        # Відразу реєструємо користувача в основній таблиці users
-        db.register_user(
-            tg_id=message.from_user.id,
-            full_name=full_name,
-            email=input_email,
-            role="teacher",
-            class_name=None
-        )
-        
-        await message.answer(f"Авторизація успішна! Вітаю, {full_name}!", reply_markup=main_menu_for_teacher())
+        db.register_user(message.from_user.id, full_name, email, "teacher")
+        await message.answer(f"Вітаю, {full_name}!", reply_markup=main_menu_for_teacher())
         await state.clear()
     else:
-        await message.answer(f"Помилка! Пошта {input_email} не знайдена в списку вчителів. Спробуйте ще раз або /start")
+        await message.answer("Цієї пошти немає в списку вчителів. Перевірте дані та спробуйте знову.")
 
-@router.message(AuthState.wait_for_name)
-async def finish_registration(message: Message, state: FSMContext):
-    user_data = await state.get_data()
-    full_name = message.text
-    
-    db.register_user(
-        message.from_user.id, 
-        full_name, 
-        user_data['email'], 
-        user_data['role'], 
-        user_data.get('class_name')
-    )
-    
-    if user_data['role'] == "teacher":
-        await message.answer(f"Вітаю, {full_name}!", reply_markup=main_menu_for_teacher())
-    else:
-        await message.answer(f"Привіт, {full_name}!", reply_markup=main_menu_for_student())
-    
-    await state.clear()
+# --- Функціонал для вчителя: Хто відсутній ---
 
-# --- Статуси та Вихід ---
 @router.message(F.text == "Хто відсутній?")
-async def ask_class_for_absent(message: Message, state: FSMContext):
+async def teacher_absent_start(message: Message, state: FSMContext):
     if db.get_user_role(message.from_user.id) == "teacher":
-        await message.answer("Оберіть клас для перевірки відсутніх:", reply_markup=class_selection_menu())
+        await message.answer("Оберіть клас для перевірки:", reply_markup=class_selection_menu())
         await state.set_state(AuthState.wait_for_absent_class)
 
 @router.message(AuthState.wait_for_absent_class)
-async def show_absent_students(message: Message, state: FSMContext):
+async def process_absent_check(message: Message, state: FSMContext):
     if message.text == "⬅️ Назад":
         await state.clear()
-        await cmd_start(message)
-        return
-
+        return await cmd_start(message)
+    
     selected_class = message.text
-    absent_list = db.get_absent_students(selected_class)
+    absent_students = db.get_absent_students(selected_class)
     
-    if not absent_list:
-        text = f"У класі {selected_class} всі присутні! ✅"
+    if not absent_students:
+        await message.answer(f"У класі {selected_class} всі присутні! ✅", reply_markup=main_menu_for_teacher())
     else:
-        text = f"Відсутні у {selected_class} ({len(absent_list)} чол.):\n"
-        text += "\n".join([f"❌ {name}" for name in absent_list])
+        report = f"Відсутні у {selected_class} ({len(absent_students)} чол.):\n"
+        report += "\n".join([f"❌ {name}" for name in absent_students])
+        await message.answer(report, reply_markup=main_menu_for_teacher())
     
-    await message.answer(text, reply_markup=main_menu_for_teacher())
     await state.clear()
+
+# --- Статуси, Візити та Вихід ---
 
 @router.message(F.text.in_(["Прибув", "В дорозі", "В дома"]))
 async def handle_student_status(message: Message):
@@ -171,18 +146,18 @@ async def handle_student_status(message: Message):
         db.log_visit(message.from_user.id, message.text)
         await message.answer(f"Статус «{message.text}» збережено!")
     else:
-        await message.answer("Доступно тільки для учнів.")
+        await message.answer("Ця функція тільки для учнів.")
 
 @router.message(F.text == "Показати всі візити")
 async def show_all_visits(message: Message):
     if db.get_user_role(message.from_user.id) == "teacher":
         visits = db.get_all_today_visits()
-        await message.answer(f"Візити за сьогодні:\n{visits}")
+        await message.answer(f"Журнал за сьогодні:\n{visits}")
 
 @router.message(F.text == "Вийти з акаунта")
 async def logout_to_test(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer("Оберіть режим для входу:", reply_markup=regestration())
+    await message.answer("Ви вийшли з системи. Оберіть режим для входу:", reply_markup=regestration())
 
 def register_handlers(dp):
     dp.include_router(router)
