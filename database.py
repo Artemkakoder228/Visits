@@ -16,7 +16,8 @@ def init_db():
             full_name TEXT,
             email TEXT,
             role TEXT,
-            class_name TEXT
+            class_name TEXT,
+            full_name TEXT
         )
     ''')
 
@@ -80,6 +81,44 @@ def log_visit(tg_id, status):
     ''', (tg_id, status, now))
     conn.commit()
     conn.close()
+
+def get_allowed_email_data(email):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('SELECT class_name, full_name FROM allowed_emails WHERE email = ?', (email.lower(),))
+    result = cursor.fetchone()
+    conn.close()
+    return result # Поверне (class_name, full_name) або None
+
+def get_absent_students(class_name):
+    """Повертає список учнів класу, які ще не відмітилися сьогодні."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    # Знаходимо всіх учнів з allowed_emails для цього класу, 
+    # яких немає в таблиці visits за сьогодні
+    cursor.execute('''
+        SELECT full_name FROM allowed_emails 
+        WHERE class_name = ? AND email NOT IN (
+            SELECT users.email FROM visits 
+            JOIN users ON visits.tg_id = users.tg_id 
+            WHERE visits.timestamp LIKE ?
+        )
+    ''', (class_name, f'{today}%'))
+    
+    absent = cursor.fetchall()
+    conn.close()
+    return [row[0] for row in absent]
+
+def get_allowed_user_data(email):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    # Шукаємо ПІБ та роль (клас) за поштою
+    cursor.execute('SELECT full_name, class_name FROM allowed_emails WHERE email = ?', (email.lower(),))
+    result = cursor.fetchone()
+    conn.close()
+    return result # Поверне (ПІБ, Клас) або None
 
 def get_all_today_visits():
     """Отримання списку всіх відміток за сьогодні для вчителя."""

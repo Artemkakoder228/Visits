@@ -12,8 +12,9 @@ def regestration():
 def main_menu_for_teacher():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Показати всі візити")], 
-            [KeyboardButton(text="Вийти з акаунта")] # Додано
+            [KeyboardButton(text="Показати всі візити")],
+            [KeyboardButton(text="Хто відсутній?")], # Нова кнопка
+            [KeyboardButton(text="Вийти з акаунта")]
         ],
         resize_keyboard=True
     )
@@ -21,9 +22,9 @@ def main_menu_for_teacher():
 def main_menu_for_student():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Прибув")],
-            [KeyboardButton(text="В дорозі")],
-            [KeyboardButton(text="В дома")],
+            [KeyboardButton(text="Прибув✅")],
+            [KeyboardButton(text="В дорозі🚗")],
+            [KeyboardButton(text="В дома🏠")],
             [KeyboardButton(text="Вийти з акаунта")] # Додано
         ],
         resize_keyboard=True
@@ -41,8 +42,9 @@ def regestration():
 def class_selection_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="10-А"), KeyboardButton(text="11-А")],
+            [KeyboardButton(text="10-А")],
             [KeyboardButton(text="⬅️ Назад")] # Текст має збігатися з F.text
         ],
         resize_keyboard=True
     )
+
