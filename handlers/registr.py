@@ -119,6 +119,7 @@ async def teacher_absent_start(message: Message, state: FSMContext):
         await message.answer("Оберіть клас для перевірки:", reply_markup=class_selection_menu())
         await state.set_state(AuthState.wait_for_absent_class)
 
+# У файлі handlers/registr.py
 @router.message(AuthState.wait_for_absent_class)
 async def process_absent_check(message: Message, state: FSMContext):
     if message.text == "⬅️ Назад":
@@ -126,13 +127,13 @@ async def process_absent_check(message: Message, state: FSMContext):
         return await cmd_start(message)
     
     selected_class = message.text
-    absent_students = db.get_absent_students(selected_class)
+    absent_data = db.get_absent_students(selected_class)
     
-    if not absent_students:
+    if not absent_data:
         await message.answer(f"У класі {selected_class} всі присутні! ✅", reply_markup=main_menu_for_teacher())
     else:
-        report = f"Відсутні у {selected_class} ({len(absent_students)} чол.):\n"
-        report += "\n".join([f"❌ {name}" for name in absent_students])
+        # Просто з'єднуємо готові рядки символом нового рядка
+        report = f"Відсутні у {selected_class}:\n" + "\n".join(absent_data)
         await message.answer(report, reply_markup=main_menu_for_teacher())
     
     await state.clear()

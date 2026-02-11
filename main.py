@@ -34,13 +34,19 @@ async def main():
     # Налаштування планувальника
     scheduler = AsyncIOScheduler(timezone="Europe/Kyiv")
     
+    scheduler.add_job(
+        db.clear_old_visits, 
+        trigger='cron', 
+        hour=0, 
+        minute=0
+    )
     # mon-fri = Пн-Пт; hour=8, minute=30
     scheduler.add_job(
         send_reminder, 
         trigger='cron', 
         day_of_week='mon-fri', 
-        hour=19, 
-        minute=48, 
+        hour=8, 
+        minute=30, 
         args=[bot]
     )
     

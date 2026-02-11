@@ -95,17 +95,33 @@ def get_absent_students(class_name):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     today = datetime.now().strftime("%Y-%m-%d")
+    
+    # Використовуємо DISTINCT, щоб уникнути повторень прізвищ
     cursor.execute('''
-        SELECT full_name FROM allowed_emails 
+        SELECT DISTINCT full_name FROM allowed_emails 
         WHERE class_name = ? AND email NOT IN (
             SELECT users.email FROM visits 
             JOIN users ON visits.tg_id = users.tg_id 
             WHERE visits.timestamp LIKE ?
         )
     ''', (class_name, f'{today}%'))
+    
     absent = cursor.fetchall()
     conn.close()
-    return [row[0] for row in absent]
+    
+    # Якщо список порожній, повертаємо порожній список
+    if not absent:
+        return []
+
+    # Формуємо список із вашим оформленням
+    formatted_list = []
+    separator = "------------------------"
+    
+    for row in absent:
+        formatted_list.append(separator)
+        formatted_list.append(f"{row[0]}❌")
+    
+    return formatted_list
 
 def get_all_students():
     conn = sqlite3.connect(DB_NAME)
@@ -132,6 +148,16 @@ def get_allowed_user_data(email):
     result = cursor.fetchone()
     conn.close()
     return result
+
+def clear_old_visits():
+    """Видаляє всі записи про візити за попередні дні, залишаючи лише сьогоднішні."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    today = datetime.now().strftime("%Y-%m-%d")
+    # Видалити все, що не починається з сьогоднішньої дати
+    cursor.execute("DELETE FROM visits WHERE timestamp NOT LIKE ?", (f'{today}%',))
+    conn.commit()
+    conn.close()
 
 def get_all_today_visits():
     """Отримання списку всіх відміток за сьогодні для вчителя."""
