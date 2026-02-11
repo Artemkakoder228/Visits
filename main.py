@@ -3,25 +3,50 @@ import logging
 import database as db
 from aiogram import Bot, Dispatcher
 from config import BOT_TOKEN
-# Виправляємо імпорт: імпортуємо саму функцію реєстрації
 from handlers.registr import register_handlers
+# ДОДАЙТЕ ЦІ ІМПОРТИ
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from keyboard import main_menu_for_student
 
 logging.basicConfig(level=logging.INFO)
 
-# Ініціалізуємо бота за токеном з конфігу
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+# Функція для розсилки
+async def send_reminder(bot: Bot):
+    # Отримуємо список ID всіх зареєстрованих учнів
+    users = db.get_all_student_ids() 
+    for user_id in users:
+        try:
+            await bot.send_message(
+                user_id, 
+                "Доброго ранку! ☀️ Час відмітити свій статус у системі.",
+                reply_markup=main_menu_for_student()
+            )
+        except Exception as e:
+            logging.error(f"Помилка розсилки для {user_id}: {e}")
+
 async def main():
-    # Створюємо таблиці в visits.db
     db.init_db()
-    
-    # Викликаємо функцію безпосередньо
     register_handlers(dp)
 
-    print("Бот запущений і готовий до роботи...")
+    # Налаштування планувальника
+    scheduler = AsyncIOScheduler(timezone="Europe/Kyiv")
     
-    # Запускаємо поллінг, передаючи об'єкт бота
+    # mon-fri = Пн-Пт; hour=8, minute=30
+    scheduler.add_job(
+        send_reminder, 
+        trigger='cron', 
+        day_of_week='mon-fri', 
+        hour=8, 
+        minute=30, 
+        args=[bot]
+    )
+    
+    scheduler.start()
+    print("Бот запущений, планувальник працює (Пн-Пт 08:30)...")
+    
     await dp.start_polling(bot)
 
 if __name__ == "__main__":

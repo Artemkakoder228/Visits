@@ -139,14 +139,15 @@ async def process_absent_check(message: Message, state: FSMContext):
 
 # --- Статуси, Візити та Вихід ---
 
-@router.message(F.text.in_(["Прибув", "В дорозі", "В дома"]))
+@router.message(F.text.in_(["Прибув✅", "В дорозі🚗", "В дома🏠"]))
 async def handle_student_status(message: Message):
     user_role = db.get_user_role(message.from_user.id)
     if user_role == "student":
         db.log_visit(message.from_user.id, message.text)
-        await message.answer(f"Статус «{message.text}» збережено!")
+        # Ось це повідомлення підтвердження:
+        await message.answer(f"Статус «{message.text}» успішно змінено! ✅")
     else:
-        await message.answer("Ця функція тільки для учнів.")
+        await message.answer("Ця функція доступна тільки учням.")
 
 @router.message(F.text == "Показати всі візити")
 async def show_all_visits(message: Message):

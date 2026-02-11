@@ -107,6 +107,15 @@ def get_absent_students(class_name):
     conn.close()
     return [row[0] for row in absent]
 
+def get_all_students():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    # Вибираємо тільки тих, хто зареєстрований як учень
+    cursor.execute('SELECT tg_id FROM users WHERE role = "student"')
+    rows = cursor.fetchall()
+    conn.close()
+    return [row[0] for row in rows]
+
 def get_allowed_user_data(email):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
