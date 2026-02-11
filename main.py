@@ -28,7 +28,7 @@ async def send_reminder(bot: Bot):
             logging.error(f"Помилка розсилки для {user_id}: {e}")
 
 async def main():
-    db.init_db()
+    await db.init_db()
     register_handlers(dp)
 
     # Налаштування планувальника
